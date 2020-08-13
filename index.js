@@ -4,6 +4,8 @@ const chalk = require("chalk");
 const config = require('./config/config.json');
 const client = new Discord.Client();
 const queue = [];
+var history = []
+var awaitingreactions = false;
 const {
     get
 } = require('node-superfetch');
@@ -17,7 +19,7 @@ const insta = new Instagram({
     password: config.password
 });
 
-client.on("ready", () => {
+client.on("ready", () => { //Start the bootup process by loading available commands
     insta.login();
 
     setQueue().then(() => { //Add 10 images to the queue
@@ -29,13 +31,33 @@ client.on("ready", () => {
 
 async function setQueue() {
     while (queue.length < 10) { //Add 10 items to the queue
-        queue.push({
-            url: await getImg(config.subs[Math.floor(Math.random() * config.subs.length)]),
-            caption: getTags(30)
-        });
+        await addToQueue();
     };
 
     return;
+};
+
+function clearHistoryTimer(n) {
+    setTimeout(() => {
+        history = []; //Set the history to a blank array
+
+        return clearHistoryTimer(n); //Reset the timer
+    }, n);
+};
+
+async function addToQueue() {
+    getImg(config.subs[Math.floor(Math.random() * config.subs.length)]).then(img => {
+        if (!history.includes(img)) { //Check if we've already posted the meme before
+            history.push(img); //Add the url to our history
+
+            queue.push({ //Add the image and 30 random tags to the queue
+                url: img,
+                caption: getTags(30)
+            });
+        } else {
+            return addToQueue();
+        };
+    });
 };
 
 function getTags(n) {
@@ -73,6 +95,8 @@ async function startup() {
     });
 
     timePost(manageMsg, reactionArr, i); //Start the post timer
+
+    clearHistoryTimer(604800000); //Start the timer for resetting the history (1 week in this case)
 
     return reactionHandler(manageMsg, reactionArr, i);
 };
@@ -117,12 +141,7 @@ async function timePost(manageMsg, reactionArr, i) {
 
         queue.splice(0, 1); //Remove the post from the queue
 
-        getImg(config.subs[Math.floor(Math.random() * config.subs.length)]).then(img => {
-            queue.push({ //Add the image and 30 random tags to the queue
-                url: img,
-                caption: getTags(30)
-            });
-
+        addToQueue().then(() => {
             client.channels.cache.get(config.channel).send({ //Send the details of what was just posted
                 embed: postedEmb
             }).then(m => {
@@ -134,14 +153,19 @@ async function timePost(manageMsg, reactionArr, i) {
             setTimeout(() => { //Update the main message, and set the timer for the next post
                 reactionHandler(manageMsg, reactionArr, i);
 
-                timePost(manageMsg, reactionArr, i);
+                return timePost(manageMsg, reactionArr, i);
             }, 250);
         });
-
     }, time);
 };
 
 async function reactionHandler(manageMsg, reactionArr, i) {
+    if (awaitingreactions) { //Avoid calling the function multiple times at once
+        return;
+    };
+
+    var awaitingreactions = true;
+
     var queueEmb = new Discord.MessageEmbed() //Set an embed to show the queue. This will be the main message that everything relies on
         .setColor("RANDOM")
         .setTitle(`Page ${i + 1}`)
@@ -166,12 +190,16 @@ async function reactionHandler(manageMsg, reactionArr, i) {
                         i--;
                     };
 
+                    var awaitingreactions = false;
+
                     return reactionHandler(manageMsg, reactionArr, i);
 
                 case "➡️":
                     if (i !== 9) { //Make sure we're not on the last page, and if so, go forward a page
                         i++;
                     };
+
+                    var awaitingreactions = false;
 
                     return reactionHandler(manageMsg, reactionArr, i);
 
@@ -182,7 +210,7 @@ async function reactionHandler(manageMsg, reactionArr, i) {
 
                     client.channels.cache.get(config.channel).awaitMessages(msgFilter, { //Wait for the user to give a caption
                         max: 1,
-                        time: 60000,
+                        time: 120000,
                         errors: ['time']
                     }).then(async collected => {
                         var caption = collected.first().content; //Get the content
@@ -202,7 +230,9 @@ async function reactionHandler(manageMsg, reactionArr, i) {
 
                             capMsg.delete(); //Delete the temporary message
 
-                            collected.first().delete(); //Delete the user's  message
+                            collected.first().delete(); //Delete the user's message
+
+                            var awaitingreactions = false;
 
                             return reactionHandler(manageMsg, reactionArr, i); //Reload the main message with the new caption
                         };
@@ -213,6 +243,8 @@ async function reactionHandler(manageMsg, reactionArr, i) {
 
                         queue[i].caption = caption; //Set the caption
 
+                        var awaitingreactions = false;
+
                         return reactionHandler(manageMsg, reactionArr, i); //Reload the main message with the new caption
                     }).catch(e => {
                         capMsg.delete();
@@ -222,6 +254,8 @@ async function reactionHandler(manageMsg, reactionArr, i) {
                                 m.delete();
                             }, 5000);
 
+                            var awaitingreactions = false;
+
                             return reactionHandler(manageMsg, reactionArr, i); //Reload the main message
                         });
                     });
@@ -230,19 +264,16 @@ async function reactionHandler(manageMsg, reactionArr, i) {
                 case "❌":
                     queue.splice(queue.indexOf(queue[i]), 1); //Remove the current post from the queue
 
-                    getImg(config.subs[Math.floor(Math.random() * config.subs.length)]).then(img => {
-                        queue.push({ //Add a new item to the queue to replace the removed one
-                            url: img,
-                            caption: getTags(30)
-                        });
-
+                    addToQueue().then(() => {
                         client.channels.cache.get(config.channel).send(":ok_hand: Removed").then(m => { //Send a success message and delete it after 5 seconds
                             setTimeout(() => {
                                 m.delete();
                             }, 2500);
                         });
 
-                        setTimeout(() => { //Reload the main message after a quarter second. The delay is to make sure we don't reload the message before the item is added to the queue
+                        setTimeout(() => { //Reload the main message after a quarter second. The delay is just to avoid errors
+                            var awaitingreactions = false;
+
                             return reactionHandler(manageMsg, reactionArr, i);
                         }, 250);
                     });
@@ -255,6 +286,8 @@ async function reactionHandler(manageMsg, reactionArr, i) {
         })
         .catch(e => {
             client.channels.cache.get(config.channel).send(`There was an error!\n\n\`\`\`${e}\`\`\``); //Send an error message
+
+            var awaitingreactions = false;
 
             return reactionHandler(manageMsg, reactionArr, i); //Reload the main message
         });
