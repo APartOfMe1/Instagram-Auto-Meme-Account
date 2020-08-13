@@ -19,7 +19,7 @@ const insta = new Instagram({
     password: config.password
 });
 
-client.on("ready", () => { //Start the bootup process by loading available commands
+client.on("ready", () => {
     insta.login();
 
     setQueue().then(() => { //Add 10 images to the queue
@@ -46,11 +46,11 @@ function clearHistoryTimer(n) {
 };
 
 async function addToQueue() {
-    getImg(config.subs[Math.floor(Math.random() * config.subs.length)]).then(img => {
+    await getImg(config.subs[Math.floor(Math.random() * config.subs.length)]).then(img => {
         if (!history.includes(img)) { //Check if we've already posted the meme before
             history.push(img); //Add the url to our history
 
-            queue.push({ //Add the image and 30 random tags to the queue
+            return queue.push({ //Add the image and 30 random tags to the queue
                 url: img,
                 caption: getTags(30)
             });
@@ -127,24 +127,40 @@ async function timePost(manageMsg, reactionArr, i) {
     var time = Math.floor(Math.random() * (3600000 - 2400000) + 2400000); //Get a time from 40 minutes to 1 hour
 
     setTimeout(() => {
-        insta.uploadPhoto({ //Upload the first item in the queue
-            photo: queue[0].url,
-            caption: queue[0].caption,
-            post: 'feed'
-        });
+        try {
+            insta.uploadPhoto({ //Upload the first item in the queue
+                photo: queue[0].url,
+                caption: queue[0].caption,
+                post: 'feed'
+            });
 
-        var postedEmb = new Discord.MessageEmbed() //Set an embed with the details of the new post
-            .setColor("RANDOM")
-            .setTitle("Posted")
-            .setImage(queue[0].url)
-            .addField("Caption", queue[0].caption);
+            var postedEmb = new Discord.MessageEmbed() //Set an embed with the details of the new post
+                .setColor("RANDOM")
+                .setTitle("Posted")
+                .setImage(queue[0].url)
+                .addField("Caption", queue[0].caption);
 
-        queue.splice(0, 1); //Remove the post from the queue
+            queue.splice(0, 1); //Remove the post from the queue
 
-        addToQueue().then(() => {
-            client.channels.cache.get(config.channel).send({ //Send the details of what was just posted
-                embed: postedEmb
-            }).then(m => {
+            addToQueue().then(() => {
+                client.channels.cache.get(config.channel).send({ //Send the details of what was just posted
+                    embed: postedEmb
+                }).then(m => {
+                    setTimeout(() => { //Delete the message after 1 minute
+                        m.delete();
+                    }, 60000);
+                });
+
+                setTimeout(() => { //Update the main message, and set the timer for the next post
+                    reactionHandler(manageMsg, reactionArr, i);
+
+                    return timePost(manageMsg, reactionArr, i);
+                }, 250);
+            });
+        } catch (e) {
+            queue.splice(0, 1); //Remove the post from the queue
+
+            client.channels.cache.get(config.channel).send(`:x: There was an error posting, so the current item was skipped\n\n\`\`\`js\n${e}\`\`\``).then(m => {
                 setTimeout(() => { //Delete the message after 1 minute
                     m.delete();
                 }, 60000);
@@ -155,7 +171,7 @@ async function timePost(manageMsg, reactionArr, i) {
 
                 return timePost(manageMsg, reactionArr, i);
             }, 250);
-        });
+        };
     }, time);
 };
 
