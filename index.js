@@ -4,7 +4,7 @@ const chalk = require("chalk");
 const config = require('./config/config.json');
 const client = new Discord.Client();
 const queue = [];
-var history = []
+var history = [];
 var awaitingreactions = false;
 const {
     get
