@@ -25,6 +25,7 @@ npm install
 "password": "your instagram password",
 ```
 You can also edit the tags or subreddits you want the bot to pull from
+
 5. To start the bot, run the following command
 ```
 node index.js
