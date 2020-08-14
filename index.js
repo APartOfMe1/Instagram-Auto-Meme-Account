@@ -152,19 +152,15 @@ async function timePost(manageMsg, reactionArr, i) {
                 });
 
                 setTimeout(() => { //Update the main message, and set the timer for the next post
-                    if (awaitingreactions) {
-                        var queueEmb = new Discord.MessageEmbed() //Set an embed to show the queue. This will be the main message that everything relies on
-                            .setColor("RANDOM")
-                            .setTitle(`Page ${i + 1}`)
-                            .setImage(queue[i].url)
-                            .addField("Caption", queue[i].caption);
+                    var queueEmb = new Discord.MessageEmbed() //Set an embed to show the queue. This will be the main message that everything relies on
+                        .setColor("RANDOM")
+                        .setTitle(`Page ${i + 1}`)
+                        .setImage(queue[i].url)
+                        .addField("Caption", queue[i].caption);
 
-                        manageMsg.edit("", {
-                            embed: queueEmb
-                        });
-                    } else {
-                        reactionHandler(manageMsg, reactionArr, i);
-                    };
+                    manageMsg.edit("", {
+                        embed: queueEmb
+                    });
 
                     return timePost(manageMsg, reactionArr, i);
                 }, 250);
@@ -179,19 +175,15 @@ async function timePost(manageMsg, reactionArr, i) {
             });
 
             setTimeout(() => { //Update the main message, and set the timer for the next post
-                if (awaitingreactions) {
-                    var queueEmb = new Discord.MessageEmbed() //Set an embed to show the queue. This will be the main message that everything relies on
-                        .setColor("RANDOM")
-                        .setTitle(`Page ${i + 1}`)
-                        .setImage(queue[i].url)
-                        .addField("Caption", queue[i].caption);
+                var queueEmb = new Discord.MessageEmbed() //Set an embed to show the queue. This will be the main message that everything relies on
+                    .setColor("RANDOM")
+                    .setTitle(`Page ${i + 1}`)
+                    .setImage(queue[i].url)
+                    .addField("Caption", queue[i].caption);
 
-                    manageMsg.edit("", {
-                        embed: queueEmb
-                    });
-                } else {
-                    reactionHandler(manageMsg, reactionArr, i);
-                };
+                manageMsg.edit("", {
+                    embed: queueEmb
+                });
 
                 return timePost(manageMsg, reactionArr, i);
             }, 250);
